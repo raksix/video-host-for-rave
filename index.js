@@ -6,45 +6,33 @@ const path = require("path");
 
 app.get('/video/:video', (req, res) => {
    const videoPath = path.join(__dirname, "videos", req.params.video);
-   const videoSize = fs.statSync(videoPath).size;
-   
-   const CHUNK_SIZE = 10 ** 6; // Örnek olarak 1 MB
-   
-   const range = req.headers.range || "bytes=0-";
-   const [start, end] = range.replace(/bytes=/, "").split("-");
-   const startByte = parseInt(start, 10);
-   const endByte = Math.min(startByte + CHUNK_SIZE, videoSize - 1);
-
-   const contentLength = endByte - startByte + 1;
-
-   const headers = {
-       "Content-Type": "video/mp4",
-       "Content-Length": contentLength,
-       "Content-Range": `bytes ${startByte}-${endByte}/${videoSize}`,
-       "Accept-Ranges": "bytes",
-   };
-   
-   res.writeHead(206, headers);
-
-   const readStream = fs.createReadStream(videoPath, { start: startByte, end: endByte, highWaterMark: CHUNK_SIZE });
-
-   readStream.on("data", (chunk) => {
-       if (!res.write(chunk)) {
-           readStream.pause();
-       }
-   });
-
-   res.on("drain", () => {
-       readStream.resume();
-   });
-
-   readStream.on("end", () => {
-       res.end();
-   });
-
-   res.on("close", () => {
-       readStream.destroy();
-   });
+   const videoStat = fs.statSync(videoPath);
+   const fileSize = videoStat.size;
+   const videoRange = req.headers.range || "bytes=0";
+   if (videoRange) {
+      const parts = videoRange.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1]
+         ? parseInt(parts[1], 10)
+         : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(videoPath, { start, end });
+      const head = {
+         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+         'Accept-Ranges': 'bytes',
+         'Content-Length': chunksize,
+         'Content-Type': 'video/mp4',
+      };
+      res.writeHead(206, head);
+      file.pipe(res);
+   } else {
+      const head = {
+         'Content-Length': fileSize,
+         'Content-Type': 'video/mp4',
+      };
+      res.writeHead(200, head);
+      fs.createReadStream(videoPath).pipe(res);
+   }
 });
 
 app.get('/', function (req, res) {
