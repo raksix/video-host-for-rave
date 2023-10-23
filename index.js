@@ -8,7 +8,7 @@ app.get('/video/:video', (req, res) => {
    const videoPath = path.join(__dirname, "videos", req.params.video);
    const videoStat = fs.statSync(videoPath);
    const fileSize = videoStat.size;
-   const videoRange = req.headers.range || "bytes=0-";
+   const videoRange = req.headers.range || "bytes=0-614163";
    if (videoRange) {
       const parts = videoRange.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
