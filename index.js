@@ -6,25 +6,45 @@ const path = require("path");
 
 app.get('/video/:video', (req, res) => {
    const videoPath = path.join(__dirname, "videos", req.params.video);
-   const videoStat = fs.statSync(videoPath);
-   const fileSize = videoStat.size;
-   const start = 0
-   const end = 0
-      ? parseInt(0, 10)
-      : fileSize - 1;
-   const chunksize = (end - start) + 1;
-   const file = fs.createReadStream(videoPath, { start, end });
-   const head = {
-      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunksize,
-      'Content-Type': 'video/mp4',
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Headers': 'true',
-      
+   const videoSize = fs.statSync(videoPath).size;
+   
+   const CHUNK_SIZE = 10 ** 6; // Örnek olarak 1 MB
+
+   const range = req.headers.range || "bytes=0-";
+   const [start, end] = range.replace(/bytes=/, "").split("-");
+   const startByte = parseInt(start, 10);
+   const endByte = Math.min(startByte + CHUNK_SIZE, videoSize - 1);
+
+   const contentLength = endByte - startByte + 1;
+
+   const headers = {
+       "Content-Type": "video/mp4",
+       "Content-Length": contentLength,
+       "Content-Range": `bytes ${startByte}-${endByte}/${videoSize}`,
+       "Accept-Ranges": "bytes",
    };
-   res.writeHead(206, head);
-   file.pipe(res);
+
+   res.writeHead(206, headers);
+
+   const readStream = fs.createReadStream(videoPath, { start: startByte, end: endByte, highWaterMark: CHUNK_SIZE });
+
+   readStream.on("data", (chunk) => {
+       if (!res.write(chunk)) {
+           readStream.pause();
+       }
+   });
+
+   res.on("drain", () => {
+       readStream.resume();
+   });
+
+   readStream.on("end", () => {
+       res.end();
+   });
+
+   res.on("close", () => {
+       readStream.destroy();
+   });
 
 });
 
