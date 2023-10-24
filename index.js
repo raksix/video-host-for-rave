@@ -10,7 +10,7 @@ app.get('/video/:video', (req, res) => {
    
    const CHUNK_SIZE = 10 ** 6; // Örnek olarak 1 MB
 
-   const range = req.headers.range || "bytes=0-";
+   const range = req.headers.range || "bytes=0-0";
    const [start, end] = range.replace(/bytes=/, "").split("-");
    const startByte = parseInt(start, 10);
    const endByte = Math.min(startByte + CHUNK_SIZE, videoSize - 1);
